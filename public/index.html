@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutritional Analysis Engine</title>
+    <style>
+        :root {
+            --bg:        #0a0c10;
+            --panel:     #11141b;
+            --panel-2:   #0d1016;
+            --border:    #1e242f;
+            --border-2:  #2a3240;
+            --text:      #d6dde8;
+            --muted:     #6b7686;
+            --muted-2:   #8b97a8;
+            --accent:    #3da9fc;
+            --accent-dim:#1c5a8a;
+            --green:     #2ecc71;
+            --amber:     #f0a93b;
+            --red:       #e5484d;
+            --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* ── Header ── */
+        header {
+            border-bottom: 1px solid var(--border);
+            background:
+                linear-gradient(var(--panel-2), var(--panel-2)),
+                repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px);
+            padding: 18px 32px;
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        header .brand { display: flex; align-items: baseline; gap: 14px; }
+        header h1 {
+            font-family: var(--mono);
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            color: #fff;
+            text-transform: uppercase;
+        }
+        header .version {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--accent);
+            border: 1px solid var(--accent-dim);
+            border-radius: 3px;
+            padding: 1px 6px;
+        }
+        header .status {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 0.5px;
+        }
+        header .status .dot {
+            display: inline-block;
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-right: 6px;
+            box-shadow: 0 0 6px var(--green);
+            vertical-align: middle;
+        }
+
+        .container { max-width: 1080px; margin: 32px auto; padding: 0 24px; }
+
+        /* ── Section labels ── */
+        .section-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-label::before {
+            content: '';
+            width: 4px; height: 12px;
+            background: var(--accent);
+        }
+        .section-label .meta { margin-left: auto; color: var(--accent); letter-spacing: 0.5px; }
+
+        /* ── Upload ── */
+        .ingest {
+            border: 1px dashed var(--border-2);
+            border-radius: 6px;
+            background:
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(61,169,252,0.015) 10px, rgba(61,169,252,0.015) 20px),
+                var(--panel);
+            padding: 44px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            position: relative;
+        }
+        .ingest:hover, .ingest.drag-over { border-color: var(--accent); }
+        .ingest input[type="file"] {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .ingest .glyph {
+            font-family: var(--mono); font-size: 13px; color: var(--accent);
+            letter-spacing: 1px; margin-bottom: 14px;
+        }
+        .ingest h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+        .ingest p { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+
+        /* ── Preview ── */
+        .preview { display: none; margin-top: 20px; }
+        .preview.visible { display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
+        .preview .frame {
+            border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+            background: var(--panel-2); position: relative; height: 180px;
+        }
+        .preview .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .preview .frame .corner {
+            position: absolute; width: 14px; height: 14px;
+            border-color: var(--accent); pointer-events: none;
+        }
+        .preview .frame .tl { top: 8px; left: 8px; border-top: 1px solid; border-left: 1px solid; }
+        .preview .frame .tr { top: 8px; right: 8px; border-top: 1px solid; border-right: 1px solid; }
+        .preview .frame .bl { bottom: 8px; left: 8px; border-bottom: 1px solid; border-left: 1px solid; }
+        .preview .frame .br { bottom: 8px; right: 8px; border-bottom: 1px solid; border-right: 1px solid; }
+
+        .preview .meta-block { display: flex; flex-direction: column; gap: 10px; }
+        .kv { font-family: var(--mono); font-size: 12px; display: flex; gap: 10px; }
+        .kv .k { color: var(--muted); min-width: 88px; }
+        .kv .v { color: var(--text); word-break: break-all; }
+
+        .controls { display: flex; gap: 10px; margin-top: 16px; }
+        .btn {
+            font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
+            padding: 11px 22px; border-radius: 5px; cursor: pointer; border: 1px solid transparent;
+            text-transform: uppercase; transition: background 0.15s, opacity 0.15s;
+        }
+        .btn-primary { background: var(--accent); color: #051018; }
+        .btn-primary:hover { background: #5cb8ff; }
+        .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-ghost { background: transparent; border-color: var(--border-2); color: var(--muted-2); }
+        .btn-ghost:hover { border-color: var(--red); color: var(--red); }
+
+        /* ── Status / loading ── */
+        .pipeline { display: none; margin-top: 24px; font-family: var(--mono); font-size: 12px; }
+        .pipeline.visible { display: block; }
+        .pipeline .line { color: var(--muted); padding: 3px 0; }
+        .pipeline .line .tick { color: var(--green); }
+        .pipeline .line.active { color: var(--accent); }
+        .pipeline .line.active::after {
+            content: '_'; animation: blink 1s step-start infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .error {
+            display: none; margin-top: 20px; font-family: var(--mono); font-size: 12px;
+            border: 1px solid #5a2326; background: rgba(229,72,77,0.08);
+            color: #ff8b8e; padding: 14px 16px; border-radius: 5px;
+        }
+        .error.visible { display: block; }
+        .error .tag { color: var(--red); font-weight: 600; }
+
+        /* ── Results ── */
+        .results { display: none; margin-top: 32px; }
+        .results.visible { display: block; }
+
+        .grid { display: grid; gap: 14px; }
+        .grid-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-2 { grid-template-columns: 1fr 1fr; }
+
+        .card {
+            background: var(--panel); border: 1px solid var(--border);
+            border-radius: 6px; padding: 18px 20px;
+        }
+        .card .label {
+            font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 8px;
+        }
+        .card .stat { font-family: var(--mono); font-size: 28px; font-weight: 600; color: #fff; line-height: 1; }
+        .card .stat .unit { font-size: 13px; color: var(--muted-2); font-weight: 400; margin-left: 4px; }
+        .card .sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+        .identity { display: flex; flex-direction: column; gap: 4px; }
+        .identity .name { font-size: 22px; font-weight: 700; color: #fff; }
+        .identity .cat { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.5px; }
+
+        .confidence { margin-top: 14px; }
+        .bar-track { height: 5px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--accent); transition: width 0.6s ease; }
+        .confidence .row {
+            display: flex; justify-content: space-between; font-family: var(--mono);
+            font-size: 11px; color: var(--muted); margin-bottom: 6px;
+        }
+        .confidence .row .pct { color: var(--text); }
+
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        .chip {
+            font-family: var(--mono); font-size: 11px; color: var(--muted-2);
+            border: 1px solid var(--border-2); border-radius: 3px; padding: 3px 9px; background: var(--panel-2);
+        }
+        .chip.flag { color: var(--green); border-color: #1f4d33; }
+        .chip.allergen { color: var(--amber); border-color: #5c441e; }
+
+        /* ── Data table ── */
+        table.data { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+        table.data th {
+            text-align: left; color: var(--muted); font-weight: 500; font-size: 10px;
+            letter-spacing: 1px; text-transform: uppercase; padding: 0 0 10px; border-bottom: 1px solid var(--border);
+        }
+        table.data th.num, table.data td.num { text-align: right; }
+        table.data td { padding: 9px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+        table.data tr:last-child td { border-bottom: none; }
+        table.data td.name { color: var(--muted-2); }
+        table.data .dv-cell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+        table.data .dv-track { width: 56px; height: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+        table.data .dv-fill { height: 100%; background: var(--accent); }
+
+        /* ── Macro split bars ── */
+        .split { margin-top: 4px; }
+        .split-bar { display: flex; height: 26px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+        .split-bar > div { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 600; color: #051018; }
+        .split-bar .s-pro { background: var(--accent); }
+        .split-bar .s-carb { background: var(--amber); }
+        .split-bar .s-fat { background: var(--red); }
+        .split-legend { display: flex; gap: 18px; margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+        .split-legend .item { display: flex; align-items: center; gap: 6px; }
+        .split-legend .swatch { width: 9px; height: 9px; border-radius: 2px; }
+
+        /* ── Gauge / score ── */
+        .gauge { display: flex; align-items: center; gap: 20px; }
+        .gauge .ring {
+            --val: 0;
+            width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0;
+            background: conic-gradient(var(--accent) calc(var(--val) * 1%), var(--panel-2) 0);
+            display: flex; align-items: center; justify-content: center; position: relative;
+        }
+        .gauge .ring::before {
+            content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--panel);
+        }
+        .gauge .ring .num { position: relative; font-family: var(--mono); font-size: 24px; font-weight: 700; color: #fff; }
+        .gauge .text .summary { font-size: 14px; color: var(--text); line-height: 1.5; }
+        .notes { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .notes li { font-family: var(--mono); font-size: 12px; color: var(--muted-2); padding-left: 16px; position: relative; }
+        .notes li::before { content: '>'; position: absolute; left: 0; color: var(--accent); }
+
+        .footer-meta {
+            font-family: var(--mono); font-size: 10px; color: var(--muted);
+            margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
+            display: flex; gap: 24px; flex-wrap: wrap; letter-spacing: 0.5px;
+        }
+
+        @media (max-width: 760px) {
+            .grid-3, .grid-2 { grid-template-columns: 1fr; }
+            .preview.visible { grid-template-columns: 1fr; }
+            header { padding: 16px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <h1>Nutritional Analysis Engine</h1>
+        <span class="version">v1.0</span>
+    </div>
+    <div class="status"><span class="dot"></span><span id="engineStatus">INITIALIZING</span></div>
+</header>
+
+<div class="container">
+
+    <!-- Ingest -->
+    <div class="section-label">Image Ingest</div>
+    <div class="ingest" id="ingest">
+        <input type="file" id="fileInput" accept="image/*" />
+        <div class="glyph">[ DROP / SELECT ]</div>
+        <h3>Submit a food image for analysis</h3>
+        <p>JPG · PNG · WEBP — processed server-side</p>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview" id="preview">
+        <div class="frame">
+            <img id="previewImg" src="" alt="Specimen" />
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+        </div>
+        <div class="meta-block">
+            <div class="kv"><span class="k">FILENAME</span><span class="v" id="metaName">—</span></div>
+            <div class="kv"><span class="k">TYPE</span><span class="v" id="metaType">—</span></div>
+            <div class="kv"><span class="k">SIZE</span><span class="v" id="metaSize">—</span></div>
+            <div class="kv"><span class="k">DIMENSIONS</span><span class="v" id="metaDims">—</span></div>
+            <div class="controls">
+                <button class="btn btn-primary" id="analyzeBtn">Run Analysis</button>
+                <button class="btn btn-ghost" id="clearBtn">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline status -->
+    <div class="pipeline" id="pipeline"></div>
+
+    <!-- Error -->
+    <div class="error" id="error"><span class="tag">[ERROR]</span> <span id="errorMsg"></span></div>
+
+    <!-- Results -->
+    <div class="results" id="results">
+
+        <div class="section-label">Identification<span class="meta" id="confMeta"></span></div>
+        <div class="card" style="margin-bottom:24px;">
+            <div class="identity">
+                <span class="name" id="rName">—</span>
+                <span class="cat" id="rCat">—</span>
+            </div>
+            <div class="confidence">
+                <div class="row"><span>RECOGNITION CONFIDENCE</span><span class="pct" id="rConfPct">—</span></div>
+                <div class="bar-track"><div class="bar-fill" id="rConfBar" style="width:0%"></div></div>
+            </div>
+            <div class="chips" id="rComponents"></div>
+        </div>
+
+        <div class="section-label">Energy &amp; Portion</div>
+        <div class="grid grid-3" style="margin-bottom:24px;">
+            <div class="card">
+                <div class="label">Total Energy</div>
+                <div class="stat"><span id="rCalories">—</span><span class="unit">kcal</span></div>
+                <div class="sub" id="rKj">—</div>
+            </div>
+            <div class="card">
+                <div class="label">Serving</div>
+                <div class="stat" style="font-size:18px;" id="rServing">—</div>
+                <div class="sub" id="rWeight">—</div>
+            </div>
+            <div class="card">
+                <div class="label">Energy Density</div>
+                <div class="stat"><span id="rDensity">—</span><span class="unit">kcal/100g</span></div>
+                <div class="sub">reference basis</div>
+            </div>
+        </div>
+
+        <div class="section-label">Caloric Distribution</div>
+        <div class="card" style="margin-bottom:24px;">
+            <div class="split">
+                <div class="split-bar" id="rSplitBar"></div>
+                <div class="split-legend">
+                    <div class="item"><span class="swatch" style="background:var(--accent)"></span>Protein <span id="legPro">—</span></div>
+                    <div class="item"><span class="swatch" style="background:var(--amber)"></span>Carbohydrate <span id="legCarb">—</span></div>
+                    <div class="item"><span class="swatch" style="background:var(--red)"></span>Fat <span id="legFat">—</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:24px;">
+            <div>
+                <div class="section-label">Macronutrient Profile</div>
+                <div class="card">
+                    <table class="data">
+                        <thead><tr><th>Nutrient</th><th class="num">Amount</th></tr></thead>
+                        <tbody id="rMacros"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <div class="section-label">Micronutrients</div>
+                <div class="card">
+                    <table class="data">
+                        <thead><tr><th>Nutrient</th><th class="num">Amount</th><th class="num">%DV</th></tr></thead>
+                        <tbody id="rMicros"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:24px;">
+            <div>
+                <div class="section-label">Glycemic Response</div>
+                <div class="card grid grid-2" style="gap:14px;">
+                    <div>
+                        <div class="label">Glycemic Index</div>
+                        <div class="stat" id="rGi">—</div>
+                        <div class="sub" id="rGiClass">—</div>
+                    </div>
+                    <div>
+                        <div class="label">Glycemic Load</div>
+                        <div class="stat" id="rGl">—</div>
+                        <div class="sub">per serving</div>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="section-label">Dietary Classification</div>
+                <div class="card">
+                    <div class="label">Flags</div>
+                    <div class="chips" id="rFlags"></div>
+                    <div class="label" style="margin-top:14px;">Allergens</div>
+                    <div class="chips" id="rAllergens"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-label">Nutritional Assessment</div>
+        <div class="card">
+            <div class="gauge">
+                <div class="ring" id="rScoreRing"><span class="num" id="rScore">—</span></div>
+                <div class="text">
+                    <div class="label">Composite Health Score &nbsp;·&nbsp; 0–100</div>
+                    <div class="summary" id="rSummary">—</div>
+                </div>
+            </div>
+            <ul class="notes" id="rNotes"></ul>
+        </div>
+
+        <div class="footer-meta">
+            <span id="metaModel">MODEL: —</span>
+            <span id="metaTime">GENERATED: —</span>
+            <span>ESTIMATES ARE MODEL-DERIVED · NOT MEDICAL ADVICE</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+    const els = {
+        fileInput: $('fileInput'), ingest: $('ingest'), preview: $('preview'),
+        previewImg: $('previewImg'), analyzeBtn: $('analyzeBtn'), clearBtn: $('clearBtn'),
+        pipeline: $('pipeline'), error: $('error'), errorMsg: $('errorMsg'),
+        results: $('results'), engineStatus: $('engineStatus'),
+    };
+
+    let currentBase64 = null;
+    let currentMime = 'image/jpeg';
+
+    // Health check on load.
+    fetch('/api/health')
+        .then((r) => r.json())
+        .then((d) => { els.engineStatus.textContent = `ONLINE · ${(d.model || '').toUpperCase()}`; })
+        .catch(() => { els.engineStatus.textContent = 'OFFLINE'; });
+
+    // ── Ingest handlers ──
+    els.ingest.addEventListener('dragover', (e) => { e.preventDefault(); els.ingest.classList.add('drag-over'); });
+    els.ingest.addEventListener('dragleave', () => els.ingest.classList.remove('drag-over'));
+    els.ingest.addEventListener('drop', (e) => {
+        e.preventDefault();
+        els.ingest.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f && f.type.startsWith('image/')) handleFile(f);
+    });
+    els.fileInput.addEventListener('change', () => {
+        if (els.fileInput.files[0]) handleFile(els.fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+        currentMime = file.type || 'image/jpeg';
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            currentBase64 = dataUrl.split(',')[1];
+            els.previewImg.src = dataUrl;
+            els.preview.classList.add('visible');
+            els.results.classList.remove('visible');
+            els.error.classList.remove('visible');
+
+            $('metaName').textContent = file.name;
+            $('metaType').textContent = currentMime;
+            $('metaSize').textContent = formatBytes(file.size);
+
+            const img = new Image();
+            img.onload = () => { $('metaDims').textContent = `${img.naturalWidth} × ${img.naturalHeight} px`; };
+            img.src = dataUrl;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function formatBytes(b) {
+        if (b < 1024) return b + ' B';
+        if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    els.clearBtn.addEventListener('click', () => {
+        currentBase64 = null;
+        els.previewImg.src = '';
+        els.preview.classList.remove('visible');
+        els.results.classList.remove('visible');
+        els.error.classList.remove('visible');
+        els.pipeline.classList.remove('visible');
+        els.fileInput.value = '';
+    });
+
+    // ── Pipeline animation ──
+    const STEPS = [
+        'Encoding image payload',
+        'Transmitting to analysis engine',
+        'Running vision inference',
+        'Computing nutritional profile',
+        'Rendering report',
+    ];
+    let pipelineTimer = null;
+
+    function runPipeline() {
+        els.pipeline.classList.add('visible');
+        let i = 0;
+        const render = () => {
+            els.pipeline.innerHTML = STEPS.map((s, idx) => {
+                if (idx < i) return `<div class="line"><span class="tick">[OK]</span> ${s}</div>`;
+                if (idx === i) return `<div class="line active">[..] ${s}</div>`;
+                return `<div class="line" style="opacity:.35">[  ] ${s}</div>`;
+            }).join('');
+        };
+        render();
+        pipelineTimer = setInterval(() => {
+            i = Math.min(i + 1, STEPS.length - 1);
+            render();
+        }, 900);
+    }
+
+    function stopPipeline(success) {
+        clearInterval(pipelineTimer);
+        if (success) {
+            els.pipeline.innerHTML = STEPS.map((s) => `<div class="line"><span class="tick">[OK]</span> ${s}</div>`).join('');
+            setTimeout(() => els.pipeline.classList.remove('visible'), 600);
+        } else {
+            els.pipeline.classList.remove('visible');
+        }
+    }
+
+    // ── Analyze ──
+    els.analyzeBtn.addEventListener('click', analyze);
+
+    async function analyze() {
+        if (!currentBase64) { showError('No image loaded.'); return; }
+        els.analyzeBtn.disabled = true;
+        els.analyzeBtn.textContent = 'Analyzing…';
+        els.error.classList.remove('visible');
+        els.results.classList.remove('visible');
+        runPipeline();
+
+        try {
+            const res = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: currentBase64, mimeType: currentMime }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            stopPipeline(true);
+            render(data);
+        } catch (err) {
+            stopPipeline(false);
+            showError(err.message || 'Analysis failed.');
+        } finally {
+            els.analyzeBtn.disabled = false;
+            els.analyzeBtn.textContent = 'Run Analysis';
+        }
+    }
+
+    function showError(msg) {
+        els.errorMsg.textContent = msg;
+        els.error.classList.add('visible');
+    }
+
+    // ── Render report ──
+    const n = (v) => (v === null || v === undefined || isNaN(v)) ? '—' : v;
+    const num = (v, d = 0) => (v === null || v === undefined || isNaN(v)) ? '—' : Number(v).toFixed(d);
+
+    function render(d) {
+        const id = d.identification || {};
+        $('rName').textContent = id.name || 'Unidentified';
+        $('rCat').textContent = (id.category || '—').toUpperCase();
+        const conf = Number(id.confidence) || 0;
+        $('rConfPct').textContent = conf + '%';
+        $('confMeta').textContent = conf >= 75 ? 'HIGH CONFIDENCE' : conf >= 50 ? 'MODERATE' : 'LOW CONFIDENCE';
+        setTimeout(() => { $('rConfBar').style.width = conf + '%'; }, 50);
+        $('rComponents').innerHTML = (id.components || []).map((c) => `<span class="chip">${esc(c)}</span>`).join('');
+
+        const e = d.energy || {};
+        $('rCalories').textContent = num(e.calories);
+        $('rKj').textContent = e.kilojoules ? `${num(e.kilojoules)} kJ` : '—';
+        $('rDensity').textContent = num(e.caloriesPer100g);
+
+        const s = d.serving || {};
+        $('rServing').textContent = s.description || '—';
+        $('rWeight').textContent = s.estimatedWeightGrams ? `≈ ${num(s.estimatedWeightGrams)} g` : '—';
+
+        // Caloric split
+        const cb = d.caloricBreakdown || {};
+        const pro = Math.round(cb.proteinPct || 0);
+        const carb = Math.round(cb.carbPct || 0);
+        const fat = Math.round(cb.fatPct || 0);
+        $('rSplitBar').innerHTML =
+            `<div class="s-pro" style="width:${pro}%">${pro >= 8 ? pro + '%' : ''}</div>` +
+            `<div class="s-carb" style="width:${carb}%">${carb >= 8 ? carb + '%' : ''}</div>` +
+            `<div class="s-fat" style="width:${fat}%">${fat >= 8 ? fat + '%' : ''}</div>`;
+        $('legPro').textContent = pro + '%';
+        $('legCarb').textContent = carb + '%';
+        $('legFat').textContent = fat + '%';
+
+        // Macronutrients table
+        const m = d.macronutrients || {};
+        const macroRows = [
+            ['Protein', m.protein_g, 'g'],
+            ['Total Carbohydrate', m.totalCarbohydrate_g, 'g'],
+            ['— Dietary Fiber', m.dietaryFiber_g, 'g'],
+            ['— Sugars', m.sugars_g, 'g'],
+            ['— Added Sugars', m.addedSugars_g, 'g'],
+            ['Total Fat', m.totalFat_g, 'g'],
+            ['— Saturated Fat', m.saturatedFat_g, 'g'],
+            ['— Trans Fat', m.transFat_g, 'g'],
+            ['Cholesterol', m.cholesterol_mg, 'mg'],
+            ['Sodium', m.sodium_mg, 'mg'],
+            ['Potassium', m.potassium_mg, 'mg'],
+        ];
+        $('rMacros').innerHTML = macroRows.map(([label, val, unit]) =>
+            `<tr><td class="name">${esc(label)}</td><td class="num">${val == null || isNaN(val) ? '—' : num(val, 1) + ' ' + unit}</td></tr>`
+        ).join('');
+
+        // Micronutrients
+        const micros = d.micronutrients || [];
+        $('rMicros').innerHTML = micros.length ? micros.map((mi) => {
+            const dv = Math.max(0, Math.min(100, Number(mi.dailyValuePct) || 0));
+            return `<tr>
+                <td class="name">${esc(mi.name)}</td>
+                <td class="num">${esc(mi.amount || '—')}</td>
+                <td class="num"><div class="dv-cell"><div class="dv-track"><div class="dv-fill" style="width:${dv}%"></div></div>${mi.dailyValuePct == null ? '—' : Math.round(mi.dailyValuePct) + '%'}</div></td>
+            </tr>`;
+        }).join('') : '<tr><td class="name">No data</td><td class="num">—</td><td class="num">—</td></tr>';
+
+        // Glycemic
+        const g = d.glycemic || {};
+        $('rGi').textContent = n(g.index);
+        $('rGiClass').textContent = (g.classification || '—').toUpperCase();
+        $('rGl').textContent = n(g.load);
+
+        // Dietary
+        const diet = d.dietary || {};
+        $('rFlags').innerHTML = (diet.flags || []).length
+            ? diet.flags.map((f) => `<span class="chip flag">${esc(f)}</span>`).join('')
+            : '<span class="chip">none detected</span>';
+        $('rAllergens').innerHTML = (diet.allergens || []).length
+            ? diet.allergens.map((a) => `<span class="chip allergen">${esc(a)}</span>`).join('')
+            : '<span class="chip">none detected</span>';
+
+        // Assessment
+        const a = d.assessment || {};
+        const score = Math.max(0, Math.min(100, Number(a.healthScore) || 0));
+        $('rScore').textContent = n(a.healthScore);
+        const ring = $('rScoreRing');
+        ring.style.setProperty('--val', 0);
+        const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
+        ring.style.background = `conic-gradient(${scoreColor} 0%, var(--panel-2) 0)`;
+        setTimeout(() => { ring.style.background = `conic-gradient(${scoreColor} ${score}%, var(--panel-2) 0)`; }, 50);
+        $('rSummary').textContent = a.summary || '—';
+        $('rNotes').innerHTML = (a.notes || []).map((note) => `<li>${esc(note)}</li>`).join('');
+
+        // Meta
+        const meta = d._meta || {};
+        $('metaModel').textContent = 'MODEL: ' + (meta.model || '—').toUpperCase();
+        $('metaTime').textContent = 'GENERATED: ' + (meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—');
+
+        els.results.classList.add('visible');
+        els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function esc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+</script>
+</body>
+</html>

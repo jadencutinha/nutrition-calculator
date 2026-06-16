@@ -1,0 +1,18 @@
+{
+  "name": "nutrition-calculator",
+  "version": "1.0.0",
+  "description": "Food image nutritional analysis engine backed by a vision model",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
