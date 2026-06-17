@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Intake Log</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ── Toolbar ── */
+        .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+        .toolbar .range { font-family: var(--mono); font-size: 14px; color: #fff; letter-spacing: 0.5px; min-width: 230px; }
+        .nav-btn {
+            font-family: var(--mono); font-size: 12px; background: var(--panel); color: var(--text);
+            border: 1px solid var(--border-2); border-radius: 5px; padding: 8px 13px; cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Weekly summary ── */
+        .summary { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+        .summary .stat-box { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 16px; }
+        .summary .stat-box .k { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+        .summary .stat-box .v { font-family: var(--mono); font-size: 18px; font-weight: 600; color: #fff; }
+
+        /* ── Week grid ── */
+        .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+        .day {
+            background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+            min-height: 200px; display: flex; flex-direction: column; overflow: hidden;
+        }
+        .day.today { border-color: var(--accent-dim); box-shadow: inset 0 0 0 1px var(--accent-dim); }
+        .day-head {
+            padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex;
+            align-items: baseline; justify-content: space-between; cursor: pointer;
+            transition: background 0.15s;
+        }
+        .day-head:hover { background: var(--panel-2); }
+        .day-head .dow { font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+        .day-head .dom { font-family: var(--mono); font-size: 16px; font-weight: 600; color: var(--text); }
+        .day.today .day-head .dom { color: var(--accent); }
+        .day-total { font-family: var(--mono); font-size: 10px; color: var(--muted-2); padding: 6px 12px; border-bottom: 1px solid var(--border); }
+        .day-total strong { color: var(--green); }
+        .day-entries { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+        .entry {
+            background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px;
+            padding: 7px 9px; font-family: var(--mono); font-size: 11px; position: relative;
+        }
+        .entry .e-name { color: var(--text); display: block; padding-right: 16px; line-height: 1.35; word-break: break-word; }
+        .entry .e-kcal { color: var(--accent); }
+        .entry .e-src { color: var(--muted); }
+        .entry .e-del {
+            position: absolute; top: 5px; right: 6px; cursor: pointer; color: var(--muted);
+            border: none; background: none; font-size: 13px; line-height: 1; padding: 2px; transition: color 0.15s;
+        }
+        .entry .e-del:hover { color: var(--red); }
+        .day-add {
+            font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: center;
+            padding: 8px; cursor: pointer; border-top: 1px dashed var(--border); transition: color 0.15s, background 0.15s;
+        }
+        .day-add:hover { color: var(--accent); background: var(--panel-2); }
+        .day-empty { font-family: var(--mono); font-size: 10px; color: var(--muted); opacity: 0.5; padding: 12px 4px; text-align: center; }
+
+        /* ── Modal ── */
+        .overlay {
+            display: none; position: fixed; inset: 0; background: rgba(5,7,10,0.75);
+            align-items: center; justify-content: center; padding: 20px; z-index: 50;
+        }
+        .overlay.visible { display: flex; }
+        .modal {
+            background: var(--panel); border: 1px solid var(--border-2); border-radius: 8px;
+            width: 100%; max-width: 420px; padding: 24px;
+        }
+        .modal h2 { font-family: var(--mono); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: #fff; margin-bottom: 4px; }
+        .modal .sub { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 20px; }
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+        .field input {
+            width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--border-2);
+            border-radius: 5px; padding: 10px 12px; font-size: 13px; font-family: var(--sans); color-scheme: dark;
+        }
+        .field input:focus { outline: none; border-color: var(--accent); }
+        .field-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        .field-row input { font-family: var(--mono); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
+        .modal-actions .btn { flex: 1; }
+        .modal .merr { font-family: var(--mono); font-size: 11px; color: var(--red); margin-top: 10px; min-height: 14px; }
+
+        @media (max-width: 900px) {
+            .week-grid { grid-template-columns: repeat(2, 1fr); }
+            .summary { margin-left: 0; }
+        }
+        @media (max-width: 480px) {
+            .week-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand">
+        <h1>Nutritional Analysis Engine</h1>
+        <span class="version">v1.1</span>
+    </div>
+    <nav class="nav">
+        <a href="/">Analyze</a>
+        <a href="/calendar.html" class="active">Daily Log</a>
+    </nav>
+    <div class="status"><span class="dot"></span><span id="engineStatus">INITIALIZING</span></div>
+</header>
+
+<div class="container">
+
+    <div class="section-label">Weekly Intake</div>
+
+    <div class="toolbar">
+        <button class="nav-btn" id="prevWeek">‹ Prev</button>
+        <button class="nav-btn" id="todayBtn">Today</button>
+        <button class="nav-btn" id="nextWeek">Next ›</button>
+        <span class="range" id="rangeLabel">—</span>
+        <div class="summary">
+            <div class="stat-box"><div class="k">Week Total</div><div class="v"><span id="weekTotal">0</span> kcal</div></div>
+            <div class="stat-box"><div class="k">Daily Avg</div><div class="v"><span id="weekAvg">0</span> kcal</div></div>
+            <div class="stat-box"><div class="k">Entries</div><div class="v" id="weekCount">0</div></div>
+        </div>
+    </div>
+
+    <div class="week-grid" id="weekGrid"></div>
+
+</div>
+
+<!-- Add-entry modal -->
+<div class="overlay" id="overlay">
+    <div class="modal">
+        <h2>Add to Daily Log</h2>
+        <div class="sub" id="modalDateLabel">—</div>
+        <div class="field">
+            <label>Date</label>
+            <input type="date" id="mDate" />
+        </div>
+        <div class="field">
+            <label>Food / Recipe Name</label>
+            <input type="text" id="mName" placeholder="e.g. Banana oat pancakes" />
+        </div>
+        <div class="field">
+            <label>Calories (kcal)</label>
+            <input type="number" id="mCalories" min="0" step="1" placeholder="e.g. 320" />
+        </div>
+        <div class="field">
+            <label>Macros — optional (g)</label>
+            <div class="field-row">
+                <input type="number" id="mProtein" min="0" step="0.1" placeholder="Protein" />
+                <input type="number" id="mCarb" min="0" step="0.1" placeholder="Carbs" />
+                <input type="number" id="mFat" min="0" step="0.1" placeholder="Fat" />
+            </div>
+        </div>
+        <div class="merr" id="modalError"></div>
+        <div class="modal-actions">
+            <button class="btn btn-primary" id="saveEntry">Save</button>
+            <button class="btn btn-ghost" id="cancelEntry">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+    const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    let weekStart = getWeekStart(new Date());
+
+    // Health check.
+    fetch('/api/health').then((r) => r.json())
+        .then((d) => { $('engineStatus').textContent = `ONLINE · ${(d.model || '').toUpperCase()}`; })
+        .catch(() => { $('engineStatus').textContent = 'OFFLINE'; });
+
+    // ── Date helpers (all local time) ──
+    function localDateString(d) {
+        const off = d.getTimezoneOffset();
+        return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+    }
+    function getWeekStart(d) {
+        const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        x.setDate(x.getDate() - x.getDay()); // back to Sunday
+        return x;
+    }
+    function addDays(d, n) {
+        const x = new Date(d);
+        x.setDate(x.getDate() + n);
+        return x;
+    }
+
+    // ── Navigation ──
+    $('prevWeek').addEventListener('click', () => { weekStart = addDays(weekStart, -7); load(); });
+    $('nextWeek').addEventListener('click', () => { weekStart = addDays(weekStart, 7); load(); });
+    $('todayBtn').addEventListener('click', () => { weekStart = getWeekStart(new Date()); load(); });
+
+    // ── Load + render the current week ──
+    async function load() {
+        const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+        const from = localDateString(days[0]);
+        const to = localDateString(days[6]);
+        const todayStr = localDateString(new Date());
+
+        $('rangeLabel').textContent =
+            `${MON[days[0].getMonth()]} ${days[0].getDate()} – ${MON[days[6].getMonth()]} ${days[6].getDate()}, ${days[6].getFullYear()}`;
+
+        let entries = [];
+        try {
+            const res = await fetch(`/api/log?from=${from}&to=${to}`);
+            const data = await res.json();
+            entries = data.entries || [];
+        } catch {
+            entries = [];
+        }
+
+        const byDate = {};
+        for (const e of entries) (byDate[e.date] = byDate[e.date] || []).push(e);
+
+        let weekTotal = 0;
+        const grid = $('weekGrid');
+        grid.innerHTML = days.map((day) => {
+            const ds = localDateString(day);
+            const list = byDate[ds] || [];
+            const dayTotal = list.reduce((s, e) => s + (Number(e.calories) || 0), 0);
+            weekTotal += dayTotal;
+
+            const entriesHtml = list.length ? list.map((e) => `
+                <div class="entry">
+                    <button class="e-del" data-id="${esc(e.id)}" title="Remove">×</button>
+                    <span class="e-name">${esc(e.name)}</span>
+                    <span class="e-kcal">${Math.round(Number(e.calories) || 0)} kcal</span>
+                    ${e.source === 'analysis' ? '<span class="e-src"> · scan</span>' : ''}
+                </div>`).join('') : '<div class="day-empty">No entries</div>';
+
+            return `
+                <div class="day ${ds === todayStr ? 'today' : ''}">
+                    <div class="day-head" data-date="${ds}">
+                        <span class="dow">${DOW[day.getDay()].slice(0, 3)}</span>
+                        <span class="dom">${day.getDate()}</span>
+                    </div>
+                    <div class="day-total">TOTAL <strong>${Math.round(dayTotal)}</strong> kcal</div>
+                    <div class="day-entries">${entriesHtml}</div>
+                    <div class="day-add" data-date="${ds}">+ Add</div>
+                </div>`;
+        }).join('');
+
+        $('weekTotal').textContent = Math.round(weekTotal).toLocaleString();
+        $('weekAvg').textContent = Math.round(weekTotal / 7).toLocaleString();
+        $('weekCount').textContent = entries.length;
+
+        // Wire interactions.
+        grid.querySelectorAll('.day-add, .day-head').forEach((el) =>
+            el.addEventListener('click', () => openModal(el.dataset.date)));
+        grid.querySelectorAll('.e-del').forEach((btn) =>
+            btn.addEventListener('click', (ev) => { ev.stopPropagation(); deleteEntry(btn.dataset.id); }));
+    }
+
+    async function deleteEntry(id) {
+        try {
+            const res = await fetch(`/api/log/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error();
+            load();
+        } catch {
+            alert('Could not delete entry.');
+        }
+    }
+
+    // ── Modal ──
+    const overlay = $('overlay');
+    function openModal(dateStr) {
+        $('mDate').value = dateStr;
+        $('mName').value = '';
+        $('mCalories').value = '';
+        $('mProtein').value = '';
+        $('mCarb').value = '';
+        $('mFat').value = '';
+        $('modalError').textContent = '';
+        const [y, mo, d] = dateStr.split('-').map(Number);
+        const dt = new Date(y, mo - 1, d);
+        $('modalDateLabel').textContent = `${DOW[dt.getDay()]}, ${MON[dt.getMonth()]} ${dt.getDate()}`;
+        overlay.classList.add('visible');
+        setTimeout(() => $('mName').focus(), 50);
+    }
+    function closeModal() { overlay.classList.remove('visible'); }
+
+    $('cancelEntry').addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    $('saveEntry').addEventListener('click', async () => {
+        const name = $('mName').value.trim();
+        const calories = $('mCalories').value;
+        if (!name) { $('modalError').textContent = 'A food name is required.'; return; }
+        if (calories === '' || Number(calories) < 0 || isNaN(Number(calories))) {
+            $('modalError').textContent = 'Enter a valid calorie value.'; return;
+        }
+
+        const payload = {
+            date: $('mDate').value,
+            name,
+            calories: Number(calories),
+            source: 'manual',
+        };
+        const pro = $('mProtein').value, carb = $('mCarb').value, fat = $('mFat').value;
+        if (pro !== '') payload.protein_g = Number(pro);
+        if (carb !== '') payload.carb_g = Number(carb);
+        if (fat !== '') payload.fat_g = Number(fat);
+
+        $('saveEntry').disabled = true;
+        try {
+            const res = await fetch('/api/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to save.');
+            closeModal();
+            load();
+        } catch (err) {
+            $('modalError').textContent = err.message;
+        } finally {
+            $('saveEntry').disabled = false;
+        }
+    });
+
+    function esc(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    load();
+</script>
+</body>
+</html>
