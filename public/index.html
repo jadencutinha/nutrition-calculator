@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nutritional Analysis Engine</title>
+    <link rel="stylesheet" href="styles.css">
     <style>
         :root {
             --bg:        #efecdf;
@@ -113,70 +114,42 @@
             padding: 44px 24px;
             text-align: center;
             cursor: pointer;
-            transition: border-color 0.15s, background 0.15s;
+            transition: border-color 0.15s;
             position: relative;
         }
         .ingest:hover, .ingest.drag-over { border-color: var(--accent); }
-        .ingest input[type="file"] {
-            position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
-        }
-        .ingest .glyph {
-            font-family: var(--mono); font-size: 13px; color: var(--accent);
-            letter-spacing: 1px; margin-bottom: 14px;
-        }
+        .ingest.hidden { display: none; }
+        .ingest input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .ingest .glyph { font-family: var(--mono); font-size: 13px; color: var(--accent); letter-spacing: 1px; margin-bottom: 14px; }
         .ingest h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
         .ingest p { font-family: var(--mono); font-size: 12px; color: var(--muted); }
 
         /* ── Preview ── */
         .preview { display: none; margin-top: 20px; }
         .preview.visible { display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
-        .preview .frame {
-            border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
-            background: var(--panel-2); position: relative; height: 180px;
-        }
+        .preview .frame { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--panel-2); position: relative; height: 180px; }
         .preview .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .preview .frame .corner {
-            position: absolute; width: 14px; height: 14px;
-            border-color: var(--accent); pointer-events: none;
-        }
+        .preview .frame .corner { position: absolute; width: 14px; height: 14px; border-color: var(--accent); pointer-events: none; }
         .preview .frame .tl { top: 8px; left: 8px; border-top: 1px solid; border-left: 1px solid; }
         .preview .frame .tr { top: 8px; right: 8px; border-top: 1px solid; border-right: 1px solid; }
         .preview .frame .bl { bottom: 8px; left: 8px; border-bottom: 1px solid; border-left: 1px solid; }
         .preview .frame .br { bottom: 8px; right: 8px; border-bottom: 1px solid; border-right: 1px solid; }
-
         .preview .meta-block { display: flex; flex-direction: column; gap: 10px; }
         .kv { font-family: var(--mono); font-size: 12px; display: flex; gap: 10px; }
         .kv .k { color: var(--muted); min-width: 88px; }
         .kv .v { color: var(--text); word-break: break-all; }
-
         .controls { display: flex; gap: 10px; margin-top: 16px; }
-        .btn {
-            font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.5px;
-            padding: 11px 22px; border-radius: 5px; cursor: pointer; border: 1px solid transparent;
-            text-transform: uppercase; transition: background 0.15s, opacity 0.15s;
-        }
-        .btn-primary { background: var(--accent); color: #051018; }
-        .btn-primary:hover { background: #5cb8ff; }
-        .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-        .btn-ghost { background: transparent; border-color: var(--border-2); color: var(--muted-2); }
-        .btn-ghost:hover { border-color: var(--red); color: var(--red); }
 
-        /* ── Status / loading ── */
+        /* ── Pipeline / error ── */
         .pipeline { display: none; margin-top: 24px; font-family: var(--mono); font-size: 12px; }
         .pipeline.visible { display: block; }
         .pipeline .line { color: var(--muted); padding: 3px 0; }
         .pipeline .line .tick { color: var(--green); }
         .pipeline .line.active { color: var(--accent); }
-        .pipeline .line.active::after {
-            content: '_'; animation: blink 1s step-start infinite;
-        }
+        .pipeline .line.active::after { content: '_'; animation: blink 1s step-start infinite; }
         @keyframes blink { 50% { opacity: 0; } }
 
-        .error {
-            display: none; margin-top: 20px; font-family: var(--mono); font-size: 12px;
-            border: 1px solid #5a2326; background: rgba(229,72,77,0.08);
-            color: #ff8b8e; padding: 14px 16px; border-radius: 5px;
-        }
+        .error { display: none; margin-top: 20px; font-family: var(--mono); font-size: 12px; border: 1px solid #5a2326; background: rgba(229,72,77,0.08); color: #ff8b8e; padding: 14px 16px; border-radius: 5px; }
         .error.visible { display: block; }
         .error .tag { color: var(--red); font-weight: 600; }
 
@@ -184,59 +157,28 @@
         .results { display: none; margin-top: 32px; }
         .results.visible { display: block; }
 
-        .grid { display: grid; gap: 14px; }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .grid-2 { grid-template-columns: 1fr 1fr; }
-
-        .card {
-            background: var(--panel); border: 1px solid var(--border);
-            border-radius: 6px; padding: 18px 20px;
+        /* ── Add-to-log action bar ── */
+        .logbar {
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+            background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+            padding: 14px 18px; margin-bottom: 24px;
         }
-        .card .label {
-            font-family: var(--mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
-            color: var(--muted); margin-bottom: 8px;
+        .logbar .lb-label { font-family: var(--mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+        .logbar input[type="date"] {
+            font-family: var(--mono); font-size: 12px; background: var(--panel-2); color: var(--text);
+            border: 1px solid var(--border-2); border-radius: 5px; padding: 9px 12px; color-scheme: dark;
         }
-        .card .stat { font-family: var(--mono); font-size: 28px; font-weight: 600; color: #fff; line-height: 1; }
-        .card .stat .unit { font-size: 13px; color: var(--muted-2); font-weight: 400; margin-left: 4px; }
-        .card .sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+        .logbar .lb-status { font-family: var(--mono); font-size: 11px; color: var(--green); margin-left: auto; }
 
         .identity { display: flex; flex-direction: column; gap: 4px; }
         .identity .name { font-size: 22px; font-weight: 700; color: #fff; }
         .identity .cat { font-family: var(--mono); font-size: 12px; color: var(--accent); letter-spacing: 0.5px; }
 
         .confidence { margin-top: 14px; }
-        .bar-track { height: 5px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; overflow: hidden; }
-        .bar-fill { height: 100%; background: var(--accent); transition: width 0.6s ease; }
-        .confidence .row {
-            display: flex; justify-content: space-between; font-family: var(--mono);
-            font-size: 11px; color: var(--muted); margin-bottom: 6px;
-        }
+        .confidence .row { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 6px; }
         .confidence .row .pct { color: var(--text); }
 
-        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-        .chip {
-            font-family: var(--mono); font-size: 11px; color: var(--muted-2);
-            border: 1px solid var(--border-2); border-radius: 3px; padding: 3px 9px; background: var(--panel-2);
-        }
-        .chip.flag { color: var(--green); border-color: #1f4d33; }
-        .chip.allergen { color: var(--amber); border-color: #5c441e; }
-
-        /* ── Data table ── */
-        table.data { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
-        table.data th {
-            text-align: left; color: var(--muted); font-weight: 500; font-size: 10px;
-            letter-spacing: 1px; text-transform: uppercase; padding: 0 0 10px; border-bottom: 1px solid var(--border);
-        }
-        table.data th.num, table.data td.num { text-align: right; }
-        table.data td { padding: 9px 0; border-bottom: 1px solid var(--border); color: var(--text); }
-        table.data tr:last-child td { border-bottom: none; }
-        table.data td.name { color: var(--muted-2); }
-        table.data .dv-cell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-        table.data .dv-track { width: 56px; height: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
-        table.data .dv-fill { height: 100%; background: var(--accent); }
-
         /* ── Macro split bars ── */
-        .split { margin-top: 4px; }
         .split-bar { display: flex; height: 26px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
         .split-bar > div { display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; font-weight: 600; color: #051018; }
         .split-bar .s-pro { background: var(--accent); }
@@ -246,33 +188,50 @@
         .split-legend .item { display: flex; align-items: center; gap: 6px; }
         .split-legend .swatch { width: 9px; height: 9px; border-radius: 2px; }
 
+        /* ── Data table ── */
+        table.data { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+        table.data th { text-align: left; color: var(--muted); font-weight: 500; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 0 0 10px; border-bottom: 1px solid var(--border); }
+        table.data th.num, table.data td.num { text-align: right; }
+        table.data td { padding: 9px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+        table.data tr:last-child td { border-bottom: none; }
+        table.data td.name { color: var(--muted-2); }
+        table.data .dv-cell { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+        table.data .dv-track { width: 56px; height: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+        table.data .dv-fill { height: 100%; background: var(--accent); }
+
         /* ── Gauge / score ── */
         .gauge { display: flex; align-items: center; gap: 20px; }
-        .gauge .ring {
-            --val: 0;
-            width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0;
-            background: conic-gradient(var(--accent) calc(var(--val) * 1%), var(--panel-2) 0);
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
-        .gauge .ring::before {
-            content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--panel);
-        }
+        .gauge .ring { --val: 0; width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; background: conic-gradient(var(--accent) calc(var(--val) * 1%), var(--panel-2) 0); display: flex; align-items: center; justify-content: center; position: relative; }
+        .gauge .ring::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; background: var(--panel); }
         .gauge .ring .num { position: relative; font-family: var(--mono); font-size: 24px; font-weight: 700; color: #fff; }
         .gauge .text .summary { font-size: 14px; color: var(--text); line-height: 1.5; }
         .notes { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
         .notes li { font-family: var(--mono); font-size: 12px; color: var(--muted-2); padding-left: 16px; position: relative; }
         .notes li::before { content: '>'; position: absolute; left: 0; color: var(--accent); }
 
-        .footer-meta {
-            font-family: var(--mono); font-size: 10px; color: var(--muted);
-            margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
-            display: flex; gap: 24px; flex-wrap: wrap; letter-spacing: 0.5px;
-        }
+        /* ── Recipe card ── */
+        .recipe-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+        .recipe-head .r-title { font-size: 20px; font-weight: 700; color: #fff; }
+        .recipe-head .r-desc { font-size: 13px; color: var(--muted-2); margin-top: 4px; max-width: 640px; }
+        .recipe-meta { display: flex; gap: 22px; margin: 18px 0; flex-wrap: wrap; }
+        .recipe-meta .rm { font-family: var(--mono); }
+        .recipe-meta .rm .k { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+        .recipe-meta .rm .v { font-size: 16px; color: var(--text); }
+        .recipe-cols { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; }
+        .recipe-cols h4 { font-family: var(--mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+        .ing-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .ing-list li { font-size: 13px; color: var(--text); padding-left: 16px; position: relative; }
+        .ing-list li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+        .step-list { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 12px; }
+        .step-list li { counter-increment: step; display: flex; gap: 12px; font-size: 13px; color: var(--text); line-height: 1.55; }
+        .step-list li::before { content: counter(step); flex-shrink: 0; width: 22px; height: 22px; background: var(--accent); color: #051018; border-radius: 50%; font-family: var(--mono); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .recipe-tips { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+
+        .footer-meta { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; gap: 24px; flex-wrap: wrap; letter-spacing: 0.5px; }
 
         @media (max-width: 760px) {
-            .grid-3, .grid-2 { grid-template-columns: 1fr; }
             .preview.visible { grid-template-columns: 1fr; }
-            header { padding: 16px 20px; }
+            .recipe-cols { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -281,15 +240,19 @@
 <header>
     <div class="brand">
         <h1>Nutritional Analysis Engine</h1>
-        <span class="version">v1.0</span>
+        <span class="version">v1.1</span>
     </div>
+    <nav class="nav">
+        <a href="/" class="active">Analyze</a>
+        <a href="/calendar.html">Daily Log</a>
+    </nav>
     <div class="status"><span class="dot"></span><span id="engineStatus">INITIALIZING</span></div>
 </header>
 
 <div class="container">
 
     <!-- Ingest -->
-    <div class="section-label">Image Ingest</div>
+    <div class="section-label" id="ingestLabel">Image Ingest</div>
     <div class="ingest" id="ingest">
         <input type="file" id="fileInput" accept="image/*" />
         <div class="glyph">[ DROP / SELECT ]</div>
@@ -325,6 +288,14 @@
     <!-- Results -->
     <div class="results" id="results">
 
+        <!-- Add to daily log -->
+        <div class="logbar">
+            <span class="lb-label">Log to intake</span>
+            <input type="date" id="logDate" />
+            <button class="btn btn-primary btn-sm" id="addToLogBtn">Add to Daily Log</button>
+            <span class="lb-status" id="logStatus"></span>
+        </div>
+
         <div class="section-label">Identification<span class="meta" id="confMeta"></span></div>
         <div class="card" style="margin-bottom:24px;">
             <div class="identity">
@@ -359,13 +330,11 @@
 
         <div class="section-label">Caloric Distribution</div>
         <div class="card" style="margin-bottom:24px;">
-            <div class="split">
-                <div class="split-bar" id="rSplitBar"></div>
-                <div class="split-legend">
-                    <div class="item"><span class="swatch" style="background:var(--accent)"></span>Protein <span id="legPro">—</span></div>
-                    <div class="item"><span class="swatch" style="background:var(--amber)"></span>Carbohydrate <span id="legCarb">—</span></div>
-                    <div class="item"><span class="swatch" style="background:var(--red)"></span>Fat <span id="legFat">—</span></div>
-                </div>
+            <div class="split-bar" id="rSplitBar"></div>
+            <div class="split-legend">
+                <div class="item"><span class="swatch" style="background:var(--accent)"></span>Protein <span id="legPro">—</span></div>
+                <div class="item"><span class="swatch" style="background:var(--amber)"></span>Carbohydrate <span id="legCarb">—</span></div>
+                <div class="item"><span class="swatch" style="background:var(--red)"></span>Fat <span id="legFat">—</span></div>
             </div>
         </div>
 
@@ -418,7 +387,7 @@
         </div>
 
         <div class="section-label">Nutritional Assessment</div>
-        <div class="card">
+        <div class="card" style="margin-bottom:24px;">
             <div class="gauge">
                 <div class="ring" id="rScoreRing"><span class="num" id="rScore">—</span></div>
                 <div class="text">
@@ -427,6 +396,33 @@
                 </div>
             </div>
             <ul class="notes" id="rNotes"></ul>
+        </div>
+
+        <!-- Suggested recipe -->
+        <div class="section-label" id="recipeLabel">Suggested Recipe<span class="meta">FEATURING THIS FOOD</span></div>
+        <div class="card" id="recipeCard">
+            <div class="recipe-head">
+                <div>
+                    <div class="r-title" id="recTitle">—</div>
+                    <div class="r-desc" id="recDesc"></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="downloadRecipeBtn" style="border-color:var(--accent-dim);color:var(--accent);">Download Recipe</button>
+            </div>
+            <div class="recipe-meta" id="recMeta"></div>
+            <div class="recipe-cols">
+                <div>
+                    <h4>Ingredients</h4>
+                    <ul class="ing-list" id="recIngredients"></ul>
+                </div>
+                <div>
+                    <h4>Method</h4>
+                    <ol class="step-list" id="recSteps"></ol>
+                </div>
+            </div>
+            <div class="recipe-tips" id="recTipsWrap" style="display:none;">
+                <h4 style="font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">Tips</h4>
+                <ul class="notes" id="recTips"></ul>
+            </div>
         </div>
 
         <div class="footer-meta">
@@ -440,14 +436,24 @@
 <script>
     const $ = (id) => document.getElementById(id);
     const els = {
-        fileInput: $('fileInput'), ingest: $('ingest'), preview: $('preview'),
+        fileInput: $('fileInput'), ingest: $('ingest'), ingestLabel: $('ingestLabel'), preview: $('preview'),
         previewImg: $('previewImg'), analyzeBtn: $('analyzeBtn'), clearBtn: $('clearBtn'),
         pipeline: $('pipeline'), error: $('error'), errorMsg: $('errorMsg'),
         results: $('results'), engineStatus: $('engineStatus'),
+        logDate: $('logDate'), addToLogBtn: $('addToLogBtn'), logStatus: $('logStatus'),
     };
 
     let currentBase64 = null;
     let currentMime = 'image/jpeg';
+    let lastResult = null;
+
+    // Default the log date to today (local).
+    els.logDate.value = localDateString(new Date());
+
+    function localDateString(d) {
+        const off = d.getTimezoneOffset();
+        return new Date(d.getTime() - off * 60000).toISOString().slice(0, 10);
+    }
 
     // Health check on load.
     fetch('/api/health')
@@ -498,11 +504,14 @@
 
     els.clearBtn.addEventListener('click', () => {
         currentBase64 = null;
+        lastResult = null;
         els.previewImg.src = '';
         els.preview.classList.remove('visible');
         els.results.classList.remove('visible');
         els.error.classList.remove('visible');
         els.pipeline.classList.remove('visible');
+        els.ingest.classList.remove('hidden');
+        els.ingestLabel.classList.remove('hidden');
         els.fileInput.value = '';
     });
 
@@ -527,10 +536,7 @@
             }).join('');
         };
         render();
-        pipelineTimer = setInterval(() => {
-            i = Math.min(i + 1, STEPS.length - 1);
-            render();
-        }, 900);
+        pipelineTimer = setInterval(() => { i = Math.min(i + 1, STEPS.length - 1); render(); }, 900);
     }
 
     function stopPipeline(success) {
@@ -552,6 +558,8 @@
         els.analyzeBtn.textContent = 'Analyzing…';
         els.error.classList.remove('visible');
         els.results.classList.remove('visible');
+        els.ingest.classList.add('hidden');
+        els.ingestLabel.classList.add('hidden');
         runPipeline();
 
         try {
@@ -563,10 +571,13 @@
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
             stopPipeline(true);
+            lastResult = data;
             render(data);
         } catch (err) {
             stopPipeline(false);
             showError(err.message || 'Analysis failed.');
+            els.ingest.classList.remove('hidden');
+            els.ingestLabel.classList.remove('hidden');
         } finally {
             els.analyzeBtn.disabled = false;
             els.analyzeBtn.textContent = 'Run Analysis';
@@ -576,6 +587,111 @@
     function showError(msg) {
         els.errorMsg.textContent = msg;
         els.error.classList.add('visible');
+    }
+
+    // ── Add to daily log ──
+    els.addToLogBtn.addEventListener('click', async () => {
+        if (!lastResult) return;
+        const id = lastResult.identification || {};
+        const m = lastResult.macronutrients || {};
+        const e = lastResult.energy || {};
+        const name = id.name && id.name !== 'unknown' ? id.name : 'Unidentified food';
+
+        els.addToLogBtn.disabled = true;
+        els.logStatus.style.color = 'var(--muted)';
+        els.logStatus.textContent = 'Saving…';
+
+        try {
+            const res = await fetch('/api/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date: els.logDate.value,
+                    name,
+                    calories: Number(e.calories) || 0,
+                    protein_g: m.protein_g, carb_g: m.totalCarbohydrate_g, fat_g: m.totalFat_g,
+                    source: 'analysis',
+                }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to add entry.');
+            els.logStatus.style.color = 'var(--green)';
+            els.logStatus.textContent = `Added to ${els.logDate.value} ✓`;
+        } catch (err) {
+            els.logStatus.style.color = 'var(--red)';
+            els.logStatus.textContent = err.message;
+        } finally {
+            els.addToLogBtn.disabled = false;
+        }
+    });
+
+    // ── Recipe download (self-contained styled HTML card) ──
+    $('downloadRecipeBtn').addEventListener('click', () => {
+        if (!lastResult || !lastResult.recipe || !lastResult.recipe.title) return;
+        const html = buildRecipeHtml(lastResult.recipe);
+        const blob = new Blob([html], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = slugify(lastResult.recipe.title) + '.html';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    });
+
+    function slugify(s) {
+        return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'recipe';
+    }
+
+    function buildRecipeHtml(r) {
+        const meta = [];
+        if (r.servings) meta.push(['Servings', r.servings]);
+        if (r.prepTimeMinutes) meta.push(['Prep', r.prepTimeMinutes + ' min']);
+        if (r.cookTimeMinutes) meta.push(['Cook', r.cookTimeMinutes + ' min']);
+        const metaHtml = meta.map(([k, v]) => `<div class="m"><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
+        const ing = (r.ingredients || []).map((i) => `<li>${esc(i)}</li>`).join('');
+        const steps = (r.steps || []).map((s) => `<li>${esc(s)}</li>`).join('');
+        const tips = (r.tips || []).filter(Boolean);
+        const tipsHtml = tips.length ? `<section><h2>Tips</h2><ul class="tips">${tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></section>` : '';
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(r.title)} — Recipe</title>
+<style>
+  :root{--ink:#1f2430;--soft:#6b7280;--line:#e7e3da;--accent:#c0603a;--bg:#f4f1ea;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Georgia,'Times New Roman',serif;background:var(--bg);color:var(--ink);line-height:1.6;padding:48px 20px;}
+  .card{max-width:720px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:10px;padding:48px;box-shadow:0 10px 40px rgba(0,0,0,.06);}
+  .eyebrow{font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+  h1{font-size:34px;line-height:1.15;margin-bottom:12px;}
+  .desc{color:var(--soft);font-size:16px;font-style:italic;margin-bottom:28px;}
+  .meta{display:flex;gap:34px;padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:30px;}
+  .meta .m{font-family:'Helvetica Neue',Arial,sans-serif;}
+  .meta .m span{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--soft);margin-bottom:4px;}
+  .meta .m strong{font-size:20px;font-family:Georgia,serif;}
+  h2{font-family:'Helvetica Neue',Arial,sans-serif;font-size:13px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:0 0 16px;}
+  section{margin-bottom:30px;}
+  ul,ol{padding-left:0;list-style:none;}
+  .ing li{padding:8px 0 8px 22px;position:relative;border-bottom:1px dotted var(--line);}
+  .ing li:before{content:'';position:absolute;left:0;top:15px;width:7px;height:7px;background:var(--accent);border-radius:50%;}
+  .steps{counter-reset:s;}
+  .steps li{counter-increment:s;display:flex;gap:16px;margin-bottom:18px;}
+  .steps li:before{content:counter(s);flex-shrink:0;width:30px;height:30px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:14px;}
+  .tips li{padding:6px 0 6px 22px;position:relative;color:var(--soft);font-style:italic;}
+  .tips li:before{content:'\\2014';position:absolute;left:0;color:var(--accent);}
+  footer{margin-top:24px;padding-top:18px;border-top:1px solid var(--line);font-family:'Helvetica Neue',Arial,sans-serif;font-size:11px;color:var(--soft);}
+  @media print{body{background:#fff;padding:0;}.card{box-shadow:none;border:none;}}
+</style></head>
+<body><div class="card">
+  <div class="eyebrow">Recipe</div>
+  <h1>${esc(r.title)}</h1>
+  ${r.description ? `<p class="desc">${esc(r.description)}</p>` : ''}
+  ${metaHtml ? `<div class="meta">${metaHtml}</div>` : ''}
+  <section><h2>Ingredients</h2><ul class="ing">${ing}</ul></section>
+  <section><h2>Method</h2><ol class="steps">${steps}</ol></section>
+  ${tipsHtml}
+  <footer>Generated by Nutritional Analysis Engine — ${new Date().toLocaleDateString()}</footer>
+</div></body></html>`;
     }
 
     // ── Render report ──
@@ -601,7 +717,6 @@
         $('rServing').textContent = s.description || '—';
         $('rWeight').textContent = s.estimatedWeightGrams ? `≈ ${num(s.estimatedWeightGrams)} g` : '—';
 
-        // Caloric split
         const cb = d.caloricBreakdown || {};
         const pro = Math.round(cb.proteinPct || 0);
         const carb = Math.round(cb.carbPct || 0);
@@ -614,7 +729,6 @@
         $('legCarb').textContent = carb + '%';
         $('legFat').textContent = fat + '%';
 
-        // Macronutrients table
         const m = d.macronutrients || {};
         const macroRows = [
             ['Protein', m.protein_g, 'g'],
@@ -633,7 +747,6 @@
             `<tr><td class="name">${esc(label)}</td><td class="num">${val == null || isNaN(val) ? '—' : num(val, 1) + ' ' + unit}</td></tr>`
         ).join('');
 
-        // Micronutrients
         const micros = d.micronutrients || [];
         $('rMicros').innerHTML = micros.length ? micros.map((mi) => {
             const dv = Math.max(0, Math.min(100, Number(mi.dailyValuePct) || 0));
@@ -644,13 +757,11 @@
             </tr>`;
         }).join('') : '<tr><td class="name">No data</td><td class="num">—</td><td class="num">—</td></tr>';
 
-        // Glycemic
         const g = d.glycemic || {};
         $('rGi').textContent = n(g.index);
         $('rGiClass').textContent = (g.classification || '—').toUpperCase();
         $('rGl').textContent = n(g.load);
 
-        // Dietary
         const diet = d.dietary || {};
         $('rFlags').innerHTML = (diet.flags || []).length
             ? diet.flags.map((f) => `<span class="chip flag">${esc(f)}</span>`).join('')
@@ -659,25 +770,51 @@
             ? diet.allergens.map((a) => `<span class="chip allergen">${esc(a)}</span>`).join('')
             : '<span class="chip">none detected</span>';
 
-        // Assessment
         const a = d.assessment || {};
         const score = Math.max(0, Math.min(100, Number(a.healthScore) || 0));
         $('rScore').textContent = n(a.healthScore);
         const ring = $('rScoreRing');
-        ring.style.setProperty('--val', 0);
         const scoreColor = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
         ring.style.background = `conic-gradient(${scoreColor} 0%, var(--panel-2) 0)`;
         setTimeout(() => { ring.style.background = `conic-gradient(${scoreColor} ${score}%, var(--panel-2) 0)`; }, 50);
         $('rSummary').textContent = a.summary || '—';
         $('rNotes').innerHTML = (a.notes || []).map((note) => `<li>${esc(note)}</li>`).join('');
 
-        // Meta
+        renderRecipe(d.recipe);
+
         const meta = d._meta || {};
         $('metaModel').textContent = 'MODEL: ' + (meta.model || '—').toUpperCase();
         $('metaTime').textContent = 'GENERATED: ' + (meta.generatedAt ? new Date(meta.generatedAt).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—');
 
+        // Reset log status for the new result.
+        els.logStatus.textContent = '';
+
         els.results.classList.add('visible');
         els.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderRecipe(r) {
+        const hasRecipe = r && r.title && (r.ingredients || []).length;
+        $('recipeLabel').style.display = hasRecipe ? '' : 'none';
+        $('recipeCard').style.display = hasRecipe ? '' : 'none';
+        if (!hasRecipe) return;
+
+        $('recTitle').textContent = r.title;
+        $('recDesc').textContent = r.description || '';
+
+        const meta = [];
+        if (r.servings) meta.push(['Servings', r.servings]);
+        if (r.prepTimeMinutes) meta.push(['Prep', r.prepTimeMinutes + ' min']);
+        if (r.cookTimeMinutes) meta.push(['Cook', r.cookTimeMinutes + ' min']);
+        $('recMeta').innerHTML = meta.map(([k, v]) =>
+            `<div class="rm"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');
+
+        $('recIngredients').innerHTML = (r.ingredients || []).map((i) => `<li>${esc(i)}</li>`).join('');
+        $('recSteps').innerHTML = (r.steps || []).map((s) => `<li>${esc(s)}</li>`).join('');
+
+        const tips = (r.tips || []).filter(Boolean);
+        $('recTipsWrap').style.display = tips.length ? '' : 'none';
+        $('recTips').innerHTML = tips.map((t) => `<li>${esc(t)}</li>`).join('');
     }
 
     function esc(str) {
