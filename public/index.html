@@ -117,6 +117,8 @@
             position: relative;
         }
         .ingest:hover, .ingest.drag-over { border-color: var(--accent); }
+        .ingest.hidden { display: none; }
+        .section-label.hidden { display: none; }
         .ingest input[type="file"] {
             position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
         }
@@ -289,7 +291,7 @@
 <div class="container">
 
     <!-- Ingest -->
-    <div class="section-label">Image Ingest</div>
+    <div class="section-label" id="ingestLabel">Image Ingest</div>
     <div class="ingest" id="ingest">
         <input type="file" id="fileInput" accept="image/*" />
         <div class="glyph">[ DROP / SELECT ]</div>
@@ -440,7 +442,7 @@
 <script>
     const $ = (id) => document.getElementById(id);
     const els = {
-        fileInput: $('fileInput'), ingest: $('ingest'), preview: $('preview'),
+        fileInput: $('fileInput'), ingest: $('ingest'), ingestLabel: $('ingestLabel'), preview: $('preview'),
         previewImg: $('previewImg'), analyzeBtn: $('analyzeBtn'), clearBtn: $('clearBtn'),
         pipeline: $('pipeline'), error: $('error'), errorMsg: $('errorMsg'),
         results: $('results'), engineStatus: $('engineStatus'),
@@ -503,6 +505,8 @@
         els.results.classList.remove('visible');
         els.error.classList.remove('visible');
         els.pipeline.classList.remove('visible');
+        els.ingest.classList.remove('hidden');
+        els.ingestLabel.classList.remove('hidden');
         els.fileInput.value = '';
     });
 
@@ -552,6 +556,8 @@
         els.analyzeBtn.textContent = 'Analyzing…';
         els.error.classList.remove('visible');
         els.results.classList.remove('visible');
+        els.ingest.classList.add('hidden');
+        els.ingestLabel.classList.add('hidden');
         runPipeline();
 
         try {
@@ -567,6 +573,9 @@
         } catch (err) {
             stopPipeline(false);
             showError(err.message || 'Analysis failed.');
+            // Restore the ingest area so a new image can be selected after a failure.
+            els.ingest.classList.remove('hidden');
+            els.ingestLabel.classList.remove('hidden');
         } finally {
             els.analyzeBtn.disabled = false;
             els.analyzeBtn.textContent = 'Run Analysis';
